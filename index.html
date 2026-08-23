@@ -1,0 +1,203 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Balloon Pop Tycoon 3D</title>
+<meta name="description" content="A first-person balloon-popping idle tycoon built with hand-written WebGL2. No engine, no libraries, no build step.">
+<meta name="theme-color" content="#0b1220">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🎈</text></svg>">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<canvas id="gl"></canvas>
+<canvas id="fx"></canvas>
+
+<!-- ------------------------------------------------------------------ HUD -->
+<div id="hud" class="hidden">
+  <div id="crosshair"><span class="ring"></span><span class="dot"></span></div>
+
+  <div class="corner tl">
+    <div class="cash-row"><span class="cash-sym">$</span><span id="cash">0</span></div>
+    <div class="sub"><span id="rate">0</span>/s &nbsp;·&nbsp; <span id="popped">0</span> popped</div>
+    <div id="frenzy" class="pill hidden">GOLD FRENZY x3 &nbsp;<b id="frenzyTime">20</b>s</div>
+  </div>
+
+  <div class="corner tr">
+    <div id="arenaName">Sunny Meadow</div>
+    <div class="sub"><span id="prestige">x1.00</span> prestige &nbsp;·&nbsp; <span id="rebirths">0</span> rebirths</div>
+  </div>
+
+  <div id="comboWrap" class="hidden">
+    <div id="comboText">COMBO x1</div>
+    <div class="bar slim"><i id="comboBar"></i></div>
+  </div>
+
+  <div id="bossWrap" class="hidden">
+    <div id="bossName">BLOATOON</div>
+    <div class="bar boss"><i id="bossBar"></i></div>
+  </div>
+
+  <div id="upgradeStrip"></div>
+
+  <div class="bottom-center">
+    <div id="prompt" class="hidden"></div>
+    <div id="rebirthWrap">
+      <div class="bar"><i id="rebirthBar"></i></div>
+      <div class="sub center"><span id="rebirthText">Rebirth at $25.0K</span></div>
+    </div>
+  </div>
+
+  <canvas id="map" width="320" height="320"></canvas>
+  <div id="toasts"></div>
+</div>
+
+<!-- --------------------------------------------------------------- intro -->
+<div id="intro" class="screen">
+  <div class="panel wide">
+    <h1>Balloon&nbsp;Pop <span class="accent">Tycoon&nbsp;3D</span></h1>
+    <p class="tag">A first-person idle shooter, rendered with hand-written WebGL2 &mdash; no engine, no libraries, no build step.</p>
+    <div class="keys">
+      <div><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd><span>move</span></div>
+      <div><kbd>Mouse</kbd><span>look &amp; aim</span></div>
+      <div><kbd>Shift</kbd><span>sprint</span></div>
+      <div><kbd>Space</kbd><span>jump</span></div>
+      <div><kbd>E</kbd><span>buy at a kiosk</span></div>
+      <div><kbd>Shift</kbd>+<kbd>E</kbd><span>buy max</span></div>
+      <div><kbd>R</kbd><span>rebirth</span></div>
+      <div><kbd>Tab</kbd><span>stats</span></div>
+      <div><kbd>Esc</kbd><span>pause</span></div>
+    </div>
+    <button id="playBtn" class="big">Click to play</button>
+    <p class="fine">Aim at a balloon and it pops itself &mdash; no clicking needed. Hold the left mouse button to focus fire.</p>
+  </div>
+</div>
+
+<!-- --------------------------------------------------------------- menus -->
+<div id="pause" class="screen hidden">
+  <div class="panel">
+    <h2>Paused</h2>
+    <div class="menu">
+      <button data-act="resume">Resume</button>
+      <button data-act="stats">Stats</button>
+      <button data-act="achv">Achievements</button>
+      <button data-act="settings">Settings</button>
+      <button data-act="help">Controls</button>
+      <button data-act="save">Save &amp; export</button>
+    </div>
+  </div>
+</div>
+
+<div id="settings" class="screen hidden">
+  <div class="panel">
+    <h2>Settings</h2>
+    <label>Mouse sensitivity <output id="senseOut">1.00</output>
+      <input id="sense" type="range" min="0.2" max="3" step="0.05" value="1"></label>
+    <label>Field of view <output id="fovOut">78</output>
+      <input id="fov" type="range" min="60" max="110" step="1" value="78"></label>
+    <label>Volume <output id="volOut">60</output>
+      <input id="vol" type="range" min="0" max="100" step="1" value="60"></label>
+    <label>Render scale <output id="rsOut">100</output>
+      <input id="rs" type="range" min="50" max="100" step="5" value="100"></label>
+    <label class="check"><input id="invert" type="checkbox"> Invert vertical look</label>
+    <label class="check"><input id="bloom" type="checkbox" checked> Bloom</label>
+    <label class="check"><input id="grassOn" type="checkbox" checked> Grass &amp; scatter</label>
+    <div class="menu"><button data-act="back">Back</button></div>
+  </div>
+</div>
+
+<div id="stats" class="screen hidden">
+  <div class="panel wide">
+    <h2>Statistics</h2>
+    <div id="statsBody" class="grid2"></div>
+    <h3>Balloons popped by type</h3>
+    <div id="tierBody" class="tiers"></div>
+    <div class="menu"><button data-act="back">Back</button></div>
+  </div>
+</div>
+
+<div id="achv" class="screen hidden">
+  <div class="panel wide">
+    <h2>Achievements <span id="achvCount" class="sub"></span></h2>
+    <div id="achvBody" class="achv-grid"></div>
+    <div class="menu"><button data-act="back">Back</button></div>
+  </div>
+</div>
+
+<div id="help" class="screen hidden">
+  <div class="panel wide">
+    <h2>How to play</h2>
+    <ul class="help">
+      <li><b>Aim at balloons.</b> Whatever your crosshair is on takes damage automatically, at your fire rate, up to your range. Hold <kbd>LMB</kbd> to fire twice as fast.</li>
+      <li><b>Chain pops for a combo.</b> Every pop within <b>2.4&nbsp;s</b> of the last one raises your multiplier. It pays for itself fast.</li>
+      <li><b>Walk up to a kiosk and press <kbd>E</kbd>.</b> Eight of them ring the plaza. <kbd>Shift</kbd>+<kbd>E</kbd> buys as many levels as you can afford.</li>
+      <li><b>Golden balloons</b> drift up and away. Pop one before it escapes for a cash bonus and <b>20&nbsp;s of triple income</b>.</li>
+      <li><b>Bloatoons</b> show up every few hundred pops. Big, slow, extremely profitable.</li>
+      <li><b>Rebirth</b> (<kbd>R</kbd>) wipes your cash and upgrades for permanent prestige multipliers &mdash; and unlocks new arenas.</li>
+      <li><b>The pedestal in the middle</b> is the arena portal. Stand on it and press <kbd>E</kbd> to travel; later arenas pay far more.</li>
+      <li>Your progress saves automatically, and you keep earning a share of your income while away.</li>
+    </ul>
+    <div class="menu"><button data-act="back">Back</button></div>
+  </div>
+</div>
+
+<div id="rebirth" class="screen hidden">
+  <div class="panel">
+    <h2>Rebirth</h2>
+    <p id="rebirthInfo"></p>
+    <div class="menu">
+      <button id="rebirthGo" class="primary">Rebirth</button>
+      <button data-act="back">Not yet</button>
+    </div>
+  </div>
+</div>
+
+<div id="travel" class="screen hidden">
+  <div class="panel wide">
+    <h2>Arena portal</h2>
+    <div id="travelBody" class="arena-grid"></div>
+    <div class="menu"><button data-act="back">Close</button></div>
+  </div>
+</div>
+
+<div id="savepanel" class="screen hidden">
+  <div class="panel wide">
+    <h2>Save data</h2>
+    <p class="tag">Copy this string to back your game up, or paste one in and press Import.</p>
+    <textarea id="saveText" spellcheck="false"></textarea>
+    <div class="menu">
+      <button id="importBtn">Import</button>
+      <button id="wipeBtn" class="danger">Erase save</button>
+      <button data-act="back">Back</button>
+    </div>
+  </div>
+</div>
+
+<div id="welcome" class="screen hidden">
+  <div class="panel">
+    <h2>Welcome back</h2>
+    <p id="welcomeText"></p>
+    <div class="menu"><button data-act="back" class="primary">Nice</button></div>
+  </div>
+</div>
+
+<div id="nogl" class="screen hidden">
+  <div class="panel">
+    <h2>WebGL2 required</h2>
+    <p class="tag">This game needs WebGL2, which your browser or device is not providing. Try a recent Chrome, Edge, Firefox or Safari with hardware acceleration enabled.</p>
+  </div>
+</div>
+
+<script src="src/math.js"></script>
+<script src="src/gl.js"></script>
+<script src="src/assets.js"></script>
+<script src="src/config.js"></script>
+<script src="src/render.js"></script>
+<script src="src/audio.js"></script>
+<script src="src/game.js"></script>
+<script src="src/save.js"></script>
+<script src="src/ui.js"></script>
+<script src="src/main.js"></script>
+</body>
+</html>
